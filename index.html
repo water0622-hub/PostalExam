@@ -35,7 +35,7 @@
                         🧠
                     </div>
                     <h2 class="text-2xl font-bold text-slate-800 mb-1">智慧測驗模式</h2>
-                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，內建單機版郵政五法解析。</p>
+                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，支援單機解析與手動修正筆記。</p>
                     
                     <!-- 題庫狀態標籤 -->
                     <div id="db-status" class="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
@@ -252,6 +252,15 @@
             "【郵務營業規章第46條】國內包裹每件重量限制為二十公斤。最大限度為長寬高三邊合計亦不得大於一百五十公分。"
         ];
 
+        // 輔助跳脫 HTML 標籤
+        function escapeHtml(unsafe) {
+            return (unsafe || "").replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // 關鍵字雙重加權模糊搜尋演算法 (精準比對)
         function findBestMatchedLaw(questionText, optionsData, answerKey, category) {
             let bestLaw = "系統內建核心法庫未涵蓋此題精準條文，請查閱完整法規。";
@@ -259,17 +268,14 @@
             let correctOptionText = optionsData[answerKey] || "";
             let optionsText = (optionsData.A || "") + (optionsData.B || "") + (optionsData.C || "") + (optionsData.D || "");
 
-            // 輔助函數：計算單一文本對法條的契合度分數
             function scoreText(text, law) {
                 if (!text) return 0;
                 let qClean = text.replace(/[^\u4e00-\u9fa5]/g, '');
                 let keywords = [];
-                // 擷取所有 2 字與 3 字的連續詞彙作為關鍵字
                 for (let i = 0; i < qClean.length - 1; i++) {
                     keywords.push(qClean.substring(i, i + 2));
                     if (i + 2 < qClean.length) keywords.push(qClean.substring(i, i + 3));
                 }
-                // 去除重複關鍵字避免重複計分
                 keywords = [...new Set(keywords)];
                 
                 let score = 0;
@@ -284,7 +290,6 @@
 
             BUILT_IN_LAWS.forEach(law => {
                 let scoreMultiplier = 1;
-                // 如果法條前綴不符合使用者選定的分類，大幅降低權重防干擾
                 if (category !== "不選擇範圍" && category !== "考古題" && !law.includes(category)) {
                     scoreMultiplier = 0.1; 
                 }
@@ -293,16 +298,13 @@
                 let optScore = scoreText(optionsText, law);
                 let ansScore = scoreText(correctOptionText, law);
 
-                // 總分計算：結合題目、所有選項，並對「正確答案」給予 3 倍加權
                 let totalScore = (qScore + (optScore * 1.5) + (ansScore * 3)) * scoreMultiplier;
 
-                // 必殺技：如果正確解答的完整文字(去符號後)直接出現在法條中，給予絕對的壓倒性加分
                 let cleanAns = correctOptionText.replace(/[^\u4e00-\u9fa5]/g, '');
                 if (cleanAns.length >= 2 && law.includes(cleanAns)) {
                     totalScore += 50; 
                 }
                 
-                // 補充：如果其他選項的文字完整出現在法條中，也給予加分 (適用於「下列何者錯誤/不包含」題型)
                 let cleanOpts = [optionsData.A, optionsData.B, optionsData.C, optionsData.D].map(o => o ? o.replace(/[^\u4e00-\u9fa5]/g, '') : '');
                 cleanOpts.forEach(opt => {
                     if (opt.length >= 2 && law.includes(opt)) totalScore += 15;
@@ -314,7 +316,6 @@
                 }
             });
 
-            // 門檻值保護，分數過低依然視為未涵蓋
             if (maxScore > 15) {
                 return currentBest;
             }
@@ -429,14 +430,12 @@
             
             for (let i = 0; i < blocks.length; i++) {
                 let chunk = blocks[i];
-                let nextCat = currentCat; // 記錄下一題的分類
+                let nextCat = currentCat; 
                 
-                // 1. 獨立偵測分類切換：從 chunk 尋找分類名稱 (避免因題目解析失敗而錯過切換)
                 for(let cat of categories) {
                     if (chunk.includes("分類：" + cat) || chunk.includes("分類:" + cat)) {
                         nextCat = cat;
                     } else {
-                        // 檢查是否有純文字的分類名稱獨占一行
                         let lines = chunk.split('\n');
                         for (let line of lines) {
                             if (line.trim() === cat) nextCat = cat;
@@ -446,7 +445,7 @@
 
                 let ansSplit = chunk.split('答案：');
                 if (ansSplit.length < 2) {
-                    currentCat = nextCat; // 沒有解答的純文字段落，切換分類並跳過
+                    currentCat = nextCat; 
                     continue;
                 }
                 
@@ -454,15 +453,13 @@
                 let aAndRest = ansSplit[1].trim();
                 let answer = "";
                 
-                // 2. 改良正規表達式：支援多選題格式如 (AB)，避免解析失敗
                 let ansMatch = aAndRest.match(/\(\s*([A-D]+)\s*\)/i);
                 if (!ansMatch) {
-                    currentCat = nextCat; // 即使解析失敗，分類切換也要執行
+                    currentCat = nextCat; 
                     continue;
                 }
                 answer = ansMatch[1].toUpperCase();
 
-                // 抓取原本就可能存在的解析內容
                 let explanation = "";
                 let expIndex = aAndRest.indexOf('法條：');
                 if (expIndex === -1) expIndex = aAndRest.indexOf('解析：');
@@ -475,7 +472,6 @@
                 let optC_idx = qText.indexOf('(C)');
                 let optD_idx = qText.indexOf('(D)');
                 
-                // 容錯全形括號
                 if (optA_idx === -1) optA_idx = qText.indexOf('（A）');
                 if (optB_idx === -1) optB_idx = qText.indexOf('（B）');
                 if (optC_idx === -1) optC_idx = qText.indexOf('（C）');
@@ -496,7 +492,6 @@
                     });
                 }
 
-                // 3. 這一題處理完畢，確實把目前的分類狀態切換成下一個
                 currentCat = nextCat;
             }
             return db;
@@ -666,6 +661,45 @@
             }
         }
 
+        // ==========================================
+        // 手動修正解析編輯與儲存功能
+        // ==========================================
+        function toggleEditExplanation(index) {
+            const editBox = document.getElementById(`edit-box-${index}`);
+            if (editBox.classList.contains('hidden')) {
+                editBox.classList.remove('hidden');
+            } else {
+                editBox.classList.add('hidden');
+            }
+        }
+
+        function saveExplanation(quizIndex) {
+            const newExp = document.getElementById(`edit-textarea-${quizIndex}`).value;
+            const qObj = currentQuizQuestions[quizIndex];
+            
+            // 立即更新畫面的解析文字
+            document.getElementById(`explanation-text-${quizIndex}`).innerText = newExp;
+            toggleEditExplanation(quizIndex);
+            
+            // 尋找並更新 activeDatabase 內的題目
+            let found = false;
+            for (let cat in activeDatabase) {
+                let dbQObj = activeDatabase[cat].find(item => item.question === qObj.question);
+                if (dbQObj) {
+                    dbQObj.explanation = newExp; // 將手動修正的文字寫入 explanation 欄位
+                    found = true;
+                }
+            }
+            
+            if (found) {
+                // 將修改後的題庫儲存回 localStorage
+                localStorage.setItem('postalExamCustomDB', JSON.stringify(activeDatabase));
+                alert('✅ 解析已成功更新並儲存！下次考到此題將優先顯示您的自訂解析。');
+            } else {
+                alert('❌ 儲存失敗：找不到對應的題目紀錄。');
+            }
+        }
+
         function showResults() {
             showScreen('screen-results');
 
@@ -692,13 +726,20 @@
                 const correctAnswerText = q.options[q.answer];
                 const correctAnsFull = `(${q.answer}) ${correctAnswerText}`;
                 
+                // 組合 Google 搜尋字串 (加入自然語言提示，強力觸發 Google AI 摘要)
+                const searchQuery = encodeURIComponent(`請解析這道郵政法規考題，並說明各選項對錯原因：\n題目：${q.question}\n(A) ${q.options.A}\n(B) ${q.options.B}\n(C) ${q.options.C}\n(D) ${q.options.D}`);
+
                 // 本機離線比對法規 (雙重掃描加權機制)
                 let explanationText = "";
+                // 如果先前已有儲存的解析(包含手動修改)，就優先顯示
                 if (q.explanation && q.explanation.length > 0) {
                     explanationText = q.explanation;
                 } else {
                     explanationText = findBestMatchedLaw(q.question, q.options, q.answer, currentCategory);
                 }
+
+                // 準備注入 textarea 的安全字串
+                let safeExp = escapeHtml(explanationText);
 
                 html += `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
@@ -727,8 +768,28 @@
                                 <svg class="w-4 h-4 mr-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                                 📖 檢視法規與解析
                             </summary>
-                            <div class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-normal leading-relaxed border border-blue-100 shadow-inner">
-                                ${explanationText}
+                            
+                            <!-- 解析顯示區 -->
+                            <div id="explanation-text-${index}" class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-pre-wrap leading-relaxed border border-blue-100 shadow-inner">${safeExp}</div>
+                            
+                            <!-- 操作按鈕區 -->
+                            <div class="mt-3 pt-2 border-t border-blue-100/50 flex justify-between items-center">
+                                <a href="https://www.google.com/search?q=${searchQuery}" target="_blank" class="text-xs text-blue-600 hover:text-blue-800 font-bold transition-colors flex items-center bg-white px-2.5 py-1.5 rounded-md shadow-sm border border-blue-200 hover:bg-blue-50">
+                                    ✨ 呼叫 Google AI 搜尋此題
+                                </a>
+                                <button onclick="toggleEditExplanation(${index})" class="text-xs text-slate-600 hover:text-slate-800 font-bold transition-colors bg-white px-2.5 py-1.5 rounded-md shadow-sm border border-slate-200 hover:bg-slate-50 flex items-center">
+                                    ✏️ 手動修正解析
+                                </button>
+                            </div>
+                            
+                            <!-- 手動修正編輯區 (預設隱藏) -->
+                            <div id="edit-box-${index}" class="hidden mt-2 bg-white p-3 rounded border border-slate-200 shadow-sm">
+                                <label class="block text-xs font-bold text-slate-600 mb-1">請輸入正確的解析或法條：</label>
+                                <textarea id="edit-textarea-${index}" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring focus:ring-blue-200 outline-none" rows="4">${safeExp}</textarea>
+                                <div class="flex justify-end space-x-2 mt-2">
+                                    <button onclick="toggleEditExplanation(${index})" class="px-3 py-1.5 bg-slate-200 text-slate-700 font-bold rounded hover:bg-slate-300 transition-colors text-xs">取消</button>
+                                    <button onclick="saveExplanation(${index})" class="px-3 py-1.5 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 transition-colors text-xs shadow-sm">💾 儲存並記錄</button>
+                                </div>
                             </div>
                         </details>
                     </div>
