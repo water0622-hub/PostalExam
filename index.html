@@ -346,25 +346,26 @@
                 </div>
             `;
 
-            // 更改為 Google AI 摘要的提示風格
+            // 精簡 Prompt，減少 AI 負擔，提高成功率
             const promptText = `
-請針對以下郵政特考題目，進行網路搜尋並提供簡明扼要的「AI 摘要」：
-【題目】：${qText}
-【正確答案】：${correctAnsFull}
+請針對以下郵政法規考題，提供簡短的「AI 摘要」：
+題目：${qText}
+答案：${correctAnsFull}
 
-請直接輸出重點摘要（包含依據的法條重點及為什麼選該答案的客觀說明）。語氣請保持客觀、精練，如同搜尋引擎所生成的 AI 摘要結果。請勿重複輸出題目本身，也不要使用推銷或名師的語氣。
+請直接說明此題的【法規依據】與【解析重點】。語氣客觀精練，不需重複題目。
             `;
 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: promptText }] }],
-                systemInstruction: { parts: [{ text: "你是一個提供精準、客觀資訊的 AI 搜尋摘要助理。請針對使用者的考題，直接給出簡明扼要的法規重點與解答摘要。" }] },
+                systemInstruction: { parts: [{ text: "你是一個專業的法規摘要助理，負責提供簡明扼要的法條依據與考題解析。" }] },
                 tools: [{ google_search: {} }] // 開啟 Google 搜尋聯網功能
             };
 
             let delay = 1000;
+            let maxRetries = 3; // 設定最大重試次數
 
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < maxRetries; i++) {
                 try {
                     const response = await fetch(url, {
                         method: 'POST',
@@ -403,14 +404,27 @@
 
                     container.innerHTML = htmlContent;
                     container.dataset.loaded = 'true';
-                    break; 
+                    return; // 成功取得資料後直接結束函數
 
                 } catch (error) {
-                    if (i === 4) {
-                        container.innerHTML = `<div class="text-red-500 font-bold">❌ 無法連線至 AI 伺服器，請確認網路狀態。您可直接查閱原始法規文件。</div>`;
+                    console.warn(`Attempt ${i + 1} failed: ${error.message}`);
+                    if (i === maxRetries - 1) {
+                        container.innerHTML = `
+                            <div class="text-red-500 font-bold mb-2">❌ 無法連線至 AI 伺服器，可能原因如下：</div>
+                            <ul class="list-disc pl-5 text-sm text-slate-600">
+                                <li>網路連線不穩定。</li>
+                                <li>API 呼叫次數過於頻繁。</li>
+                                <li>系統暫時繁忙。</li>
+                            </ul>
+                            <div class="mt-2 text-sm text-blue-600 cursor-pointer hover:underline" onclick="fetchAIExplanation(${index}, \`${qText}\`, \`${correctAnsFull}\`, \`${category}\`)">
+                                🔄 點此重試
+                            </div>
+                        `;
+                    } else {
+                        // 失敗時等待一段時間再重試 (1s, 2s)
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2; 
                     }
-                    await new Promise(res => setTimeout(res, delay));
-                    delay *= 2;
                 }
             }
         }
