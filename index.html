@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>郵政法規測驗系統 (名師解析版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        input[type="file"] { display: none; }
+        
+        /* AI 解析區的排版優化 */
+        .ai-content strong { color: #1e40af; font-weight: 800; }
+        .ai-content p { margin-bottom: 0.75rem; }
+        .ai-content ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.75rem; }
+        .ai-content li { margin-bottom: 0.25rem; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen overflow-hidden flex justify-center">
+
+    <!-- 手機版面容器 -->
+    <div class="w-full max-w-md bg-white h-full flex flex-col shadow-2xl relative">
+        
+        <!-- Header -->
+        <header class="bg-blue-700 text-white p-4 shadow-md z-10 flex-shrink-0 flex justify-between items-center">
+            <h1 class="text-lg font-bold tracking-wider">📜 郵政法規測驗</h1>
+            <button onclick="showScreen('screen-import')" class="bg-blue-500 hover:bg-blue-400 text-white text-xs font-bold py-1.5 px-3 rounded-full transition-colors flex items-center shadow">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                載入題庫
+            </button>
+        </header>
+
+        <!-- Screen 1: 測驗設定 (首頁) -->
+        <main id="screen-setup" class="flex-grow flex flex-col p-6 overflow-y-auto no-scrollbar relative">
+            <div class="flex-grow flex flex-col justify-center">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl shadow-inner relative">
+                        🧠
+                        <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border border-white">AI</div>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">智慧測驗模式</h2>
+                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，內建郵政五法專業名師解析。</p>
+                    
+                    <!-- 題庫狀態標籤 -->
+                    <div id="db-status" class="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
+                        ⚠️ 目前為內建精簡題庫，請點上方載入完整題庫 (.docx)
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-slate-700 mb-3 text-center">👇 請點選測驗範圍</label>
+                    <div class="grid grid-cols-2 gap-3" id="category-buttons">
+                        <button onclick="selectCategory('不選擇範圍')" data-cat="不選擇範圍" class="cat-btn col-span-2 bg-blue-600 text-white border-blue-600 border-2 py-3 rounded-xl font-bold shadow-sm transition-all active:scale-95">綜合隨機 (全範圍)</button>
+                        <button onclick="selectCategory('郵政法')" data-cat="郵政法" class="cat-btn bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 border-2 py-3 rounded-xl font-bold transition-all active:scale-95">郵政法</button>
+                        <button onclick="selectCategory('郵政儲金匯兌法')" data-cat="郵政儲金匯兌法" class="cat-btn bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 border-2 py-3 rounded-xl font-bold transition-all active:scale-95">儲金匯兌法</button>
+                        <button onclick="selectCategory('簡易人壽保險法')" data-cat="簡易人壽保險法" class="cat-btn bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 border-2 py-3 rounded-xl font-bold transition-all active:scale-95">簡易壽險法</button>
+                        <button onclick="selectCategory('郵件處理規則')" data-cat="郵件處理規則" class="cat-btn bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 border-2 py-3 rounded-xl font-bold transition-all active:scale-95">郵件處理規則</button>
+                        <button onclick="selectCategory('郵務營業規章')" data-cat="郵務營業規章" class="cat-btn col-span-2 bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 border-2 py-3 rounded-xl font-bold transition-all active:scale-95">郵務營業規章</button>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-2">
+                    <button onclick="clearHistory()" class="text-xs text-slate-400 hover:text-red-500 underline underline-offset-2 transition-colors">清除作答記憶 (重新起算)</button>
+                </div>
+            </div>
+
+            <button onclick="startQuiz()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition-transform flex-shrink-0 mt-4">
+                🚀 開始測驗 (10題)
+            </button>
+        </main>
+
+        <!-- Screen 1.5: 載入題庫檔案畫面 -->
+        <main id="screen-import" class="hidden flex-grow flex flex-col p-6 bg-slate-50 overflow-hidden relative">
+            <h2 class="text-xl font-bold text-slate-800 mb-2">📥 載入題庫檔案</h2>
+            <p class="text-slate-600 text-sm mb-6">請選擇您的「郵政法規考題.docx」檔案，系統將自動解析並為您分類儲存。</p>
+            
+            <label for="file-upload" class="flex flex-col items-center justify-center w-full h-48 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-white hover:bg-blue-50 hover:border-blue-400 transition-colors mb-4">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg class="w-10 h-10 mb-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="mb-2 text-sm text-slate-500 font-semibold" id="upload-text">點擊選擇檔案</p>
+                    <p class="text-xs text-slate-400">支援 .docx 或 .txt 格式</p>
+                </div>
+                <input id="file-upload" type="file" accept=".docx,.txt" onchange="handleFileUpload(event)" />
+            </label>
+
+            <div id="loading-spinner" class="hidden flex-col items-center justify-center mb-4">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p class="text-sm text-blue-600 font-semibold">檔案解析中，請稍候...</p>
+            </div>
+            
+            <div class="flex space-x-3 flex-shrink-0 mt-auto">
+                <button onclick="showScreen('screen-setup')" class="w-full bg-slate-300 text-slate-700 font-bold py-4 rounded-xl hover:bg-slate-400 active:scale-95 transition-all">返回首頁</button>
+            </div>
+        </main>
+
+        <!-- Screen 2: 測驗進行中 -->
+        <main id="screen-quiz" class="hidden flex-grow flex flex-col p-4 bg-slate-50 overflow-hidden">
+            <div class="flex justify-between items-center mb-3 flex-shrink-0">
+                <span class="text-xs font-bold text-slate-500 bg-slate-200 px-3 py-1 rounded-full truncate max-w-[60%]" id="quiz-category-label">範圍</span>
+                <span class="text-sm font-bold text-blue-700 bg-blue-100 px-3 py-1 rounded-full whitespace-nowrap" id="question-counter">1 / 10</span>
+            </div>
+            
+            <div class="w-full bg-slate-200 h-1.5 rounded-full mb-4 flex-shrink-0 overflow-hidden">
+                <div id="progress-bar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width: 10%;"></div>
+            </div>
+            
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-4 flex-grow overflow-y-auto no-scrollbar flex flex-col">
+                <h2 id="question-text" class="text-[1.05rem] font-bold text-slate-800 mb-6 leading-relaxed flex-shrink-0">題目載入中...</h2>
+                <div id="options-container" class="flex flex-col space-y-3 mt-auto">
+                    <!-- 選項將透過 JS 動態產生 -->
+                </div>
+            </div>
+
+            <button id="next-btn" onclick="nextQuestion()" class="w-full bg-slate-300 text-slate-500 font-bold py-4 rounded-xl transition-all duration-200 flex-shrink-0 pointer-events-none" disabled>
+                請選擇答案
+            </button>
+        </main>
+
+        <!-- Screen 3: 測驗結果 -->
+        <main id="screen-results" class="hidden flex-grow flex flex-col p-4 bg-slate-50 overflow-hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-4 text-center flex-shrink-0 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-10 -mt-10 opacity-50"></div>
+                <h2 class="text-lg font-bold text-slate-600 mb-1 relative z-10">測驗結果</h2>
+                <div class="flex items-baseline justify-center relative z-10">
+                    <span class="text-6xl font-black text-blue-600" id="score-display">0</span>
+                    <span class="text-xl font-bold text-slate-400 ml-1">/ 100</span>
+                </div>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto no-scrollbar space-y-4 pb-4" id="results-container">
+                <!-- 結果將透過 JS 動態產生 -->
+            </div>
+
+            <button onclick="showScreen('screen-setup')" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg mt-2 active:scale-95 transition-transform flex-shrink-0">
+                🔄 繼續測驗
+            </button>
+        </main>
+
+    </div>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        // --- 預設展示題庫 ---
+        const defaultRawText = `
+郵政法 題目：下列何者非屬郵政法之立法目的?(A)增進公共利益(B)提供普遍、公平、合理之郵政服務(C)健全郵政發展(D)促進產業創新。 答案：(D) 
+題目：下列何者為郵政法所定之主管機關?(A)財政部(B)經濟部(C)交通部(D)金融監督管理委員會。 答案：(C) 
+題目：有關中華郵政股份有限公司組織型態之敘述,下列何者錯誤? (A)交通部為該公司唯一股東(B)屬國營公司(C)屬行政機關(D)屬營利社團法人。 答案：(C)
+郵政儲金匯兌法 題目：郵政儲金匯兌法之立法意旨為何?(A)配合國家政策、鼓勵國民儲蓄(B)增裕國庫(C)促進商業發展(D)以上皆非 答案：(A)
+簡易人壽保險法 題目：簡易人壽保險不得經營之種類下列何者是？(A) 生存保險 (B) 死亡保險 (C) 生死合險 (D) 以主約方式經營健康保險及傷害保險。 答案：(D)
+郵件處理規則 題目：訂定郵件處理規則之法源依據為何？(A)郵政法 (B)郵務營業規章 (C)中華郵政公司設置條例 (D)郵政規則。 答案：(A)
+郵務營業規章 題目：中華郵政公司經營郵務業務所依據之規定,下列何者錯誤?(A)中華郵政公司章程(B)中華郵政公司設置條例(C)郵政法(D)郵件處理規則。 答案：(B)
+`;
+
+        let activeDatabase = {};
+        let currentCategory = "不選擇範圍";
+        let currentQuizQuestions = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+
+        // 系統動態提供的 API Key
+        const apiKey = "";
+
+        window.onload = () => { loadDatabase(); };
+
+        function showScreen(screenId) {
+            document.getElementById('screen-setup').classList.add('hidden');
+            document.getElementById('screen-import').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-results').classList.add('hidden');
+            
+            document.getElementById(screenId).classList.remove('hidden');
+            if(screenId === 'screen-setup') loadDatabase();
+        }
+
+        // ==========================================
+        // 檔案讀取與解析區塊
+        // ==========================================
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const uploadText = document.getElementById('upload-text');
+            const spinner = document.getElementById('loading-spinner');
+            
+            uploadText.innerText = `已選擇：${file.name}`;
+            spinner.classList.remove('hidden');
+            spinner.classList.add('flex');
+
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            if (ext === 'txt') {
+                const reader = new FileReader();
+                reader.onload = function(e) { processExtractedText(e.target.result); };
+                reader.readAsText(file);
+            } else if (ext === 'docx') {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mammoth.extractRawText({arrayBuffer: e.target.result})
+                        .then(function(result) { processExtractedText(result.value); })
+                        .catch(function(err) {
+                            alert("解析 DOCX 失敗：" + err.message);
+                            spinner.classList.add('hidden');
+                            spinner.classList.remove('flex');
+                        });
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                alert("不支援的檔案格式，請使用 .docx 或 .txt");
+                spinner.classList.add('hidden');
+                spinner.classList.remove('flex');
+            }
+        }
+
+        function processExtractedText(rawText) {
+            const spinner = document.getElementById('loading-spinner');
+            const newDB = parseText(rawText);
+            
+            let total = 0;
+            let msg = "解析完成！各分類題數如下：\n\n";
+            for(let cat in newDB) {
+                let count = newDB[cat].length;
+                msg += `${cat}: ${count} 題\n`;
+                total += count;
+            }
+
+            if (total === 0) {
+                alert("無法解析任何題目，請確認檔案內容包含「題目：...(A)...(B)... 答案：(X)」的格式！");
+            } else {
+                localStorage.setItem('postalExamCustomDB', JSON.stringify(newDB));
+                alert(msg + `\n總計匯入 ${total} 題！系統已儲存。`);
+                showScreen('screen-setup');
+            }
+            
+            spinner.classList.add('hidden');
+            spinner.classList.remove('flex');
+            document.getElementById('file-upload').value = '';
+            document.getElementById('upload-text').innerText = "點擊選擇檔案";
+        }
+
+        function parseText(text) {
+            const categories = ["郵政法", "郵政儲金匯兌法", "簡易人壽保險法", "郵件處理規則", "郵務營業規章"];
+            let currentCat = "郵政法"; 
+            let db = { "郵政法": [], "郵政儲金匯兌法": [], "簡易人壽保險法": [], "郵件處理規則": [], "郵務營業規章": [] };
+
+            for(let cat of categories) {
+                if(text.substring(0, 150).includes(cat)) { currentCat = cat; break; }
+            }
+
+            const blocks = text.split('題目：').filter(b => b.trim() !== '');
+            
+            for (let i = 0; i < blocks.length; i++) {
+                let chunk = blocks[i];
+                let ansSplit = chunk.split('答案：');
+                if (ansSplit.length < 2) continue;
+                
+                let qText = ansSplit[0].trim();
+                let aAndRest = ansSplit[1].trim();
+                let answer = "";
+                
+                let ansMatch = aAndRest.match(/\(\s*([A-D])\s*\)/i);
+                if (ansMatch) answer = ansMatch[1].toUpperCase();
+                else continue;
+
+                let optA_idx = qText.indexOf('(A)');
+                let optB_idx = qText.indexOf('(B)');
+                let optC_idx = qText.indexOf('(C)');
+                let optD_idx = qText.indexOf('(D)');
+                
+                if (optA_idx !== -1 && optB_idx !== -1 && optC_idx !== -1 && optD_idx !== -1) {
+                    let question = qText.substring(0, optA_idx).trim();
+                    db[currentCat].push({
+                        question: question,
+                        options: { 
+                            A: qText.substring(optA_idx + 3, optB_idx).trim(),
+                            B: qText.substring(optB_idx + 3, optC_idx).trim(),
+                            C: qText.substring(optC_idx + 3, optD_idx).trim(),
+                            D: qText.substring(optD_idx + 3).trim()
+                        },
+                        answer: answer
+                    });
+                }
+
+                let afterAns = aAndRest.substring(aAndRest.indexOf(answer) + 2);
+                for(let cat of categories) {
+                    if (afterAns.includes(cat)) currentCat = cat;
+                }
+            }
+            return db;
+        }
+
+        // ==========================================
+        // AI 聯網搜尋解析模組 (郵政五法特製版)
+        // ==========================================
+        
+        function formatMarkdown(text) {
+            // 轉換基本的 Markdown 符號至 HTML 以利顯示
+            let html = text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+                
+            // 清理多餘空行
+            html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
+            return html;
+        }
+
+        async function fetchAIExplanation(index, qText, correctAnsFull, category) {
+            const container = document.getElementById(`ai-explanation-${index}`);
+            if (container.dataset.loaded === 'true') return;
+
+            container.innerHTML = `
+                <div class="flex items-center text-blue-600 font-bold mb-2">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                    正在比對郵政法規與檢索解析，請稍候...
+                </div>
+            `;
+
+            // 針對郵政五法深度優化的 Prompt
+            const promptText = `
+你現在是一位專精於「台灣郵政特考」的專業補教名師。
+這是一道測驗範圍屬於「${category !== '不選擇範圍' ? category : '郵政五法'}」的考題。
+請根據台灣現行的官方《郵政法》、《郵政儲金匯兌法》、《簡易人壽保險法》、《郵件處理規則》或《郵務營業規章》等法規內容，直接上網檢索相關法條，並為考生提供精確、白話的解答。
+
+【題目】：${qText}
+【正確答案】：${correctAnsFull}
+
+請提供以下兩段內容：
+1. 📖 【相關法條】：請直接列出本題所依據的確切法條與內容（例如：郵政法第X條規定...）。務必精準，不要隨意編造法條。
+2. 💡 【白話解析】：請用考生最容易理解的方式，詳細說明「為什麼這個選項是正確的？」，並簡單點出「其他錯的選項哪裡有錯（陷阱在哪裡）？」。
+
+※ 輸出要求：請排版清楚，適度使用粗體標記重點，且「不要」再重複輸出題目本身。
+            `;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: "你是一位台灣郵政法規名師，必須提供精確的台灣郵政法規條文與好懂的白話解析。" }] },
+                tools: [{ google_search: {} }] // 開啟 Google 搜尋聯網功能
+            };
+
+            let delay = 1000;
+
+            for (let i = 0; i < 5; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "抱歉，目前無法取得 AI 解析內容。";
+                    let htmlContent = `<div class="ai-content">${formatMarkdown(text)}</div>`;
+
+                    // 處理聯網參考資料
+                    const attributions = result.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
+                    if (attributions.length > 0) {
+                        const uniqueSources = [];
+                        attributions.forEach(a => {
+                            const uri = a.web?.uri;
+                            const title = a.web?.title;
+                            if (uri && title && !uniqueSources.some(s => s.uri === uri)) {
+                                uniqueSources.push({ uri, title });
+                            }
+                        });
+                        
+                        if (uniqueSources.length > 0) {
+                            htmlContent += `<div class="mt-4 pt-3 border-t border-blue-200 text-[0.8rem] text-slate-600">
+                                <span class="font-bold text-blue-700">🔗 參考法規來源：</span>
+                                <ul class="list-disc pl-4 mt-1 space-y-1">`;
+                            uniqueSources.forEach(s => {
+                                htmlContent += `<li><a href="${s.uri}" target="_blank" class="text-blue-500 hover:text-blue-700 hover:underline break-all">${s.title}</a></li>`;
+                            });
+                            htmlContent += `</ul></div>`;
+                        }
+                    }
+
+                    container.innerHTML = htmlContent;
+                    container.dataset.loaded = 'true';
+                    break; 
+
+                } catch (error) {
+                    if (i === 4) {
+                        container.innerHTML = `<div class="text-red-500 font-bold">❌ 無法連線至 AI 伺服器，請確認網路狀態。您可直接查閱原始法規文件。</div>`;
+                    }
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+
+        // ==========================================
+        // 測驗邏輯區塊
+        // ==========================================
+
+        function loadDatabase() {
+            const savedDB = localStorage.getItem('postalExamCustomDB');
+            const statusLabel = document.getElementById('db-status');
+            
+            if (savedDB) {
+                activeDatabase = JSON.parse(savedDB);
+                let totalQs = 0;
+                for(let cat in activeDatabase) totalQs += activeDatabase[cat].length;
+                
+                statusLabel.className = "inline-block bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full mb-2 shadow-sm";
+                statusLabel.innerText = `✅ 已載入您的專屬題庫 (共 ${totalQs} 題)`;
+            } else {
+                activeDatabase = parseText(defaultRawText);
+                statusLabel.className = "inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full mb-2 shadow-sm";
+                statusLabel.innerText = `⚠️ 目前僅有極少示範題，請點上方載入題庫 (.docx)`;
+            }
+        }
+
+        function shuffleArray(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex !== 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function selectCategory(cat) {
+            currentCategory = cat;
+            const buttons = document.querySelectorAll('.cat-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+                    btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+                }
+            });
+        }
+
+        function getHistory() {
+            return JSON.parse(localStorage.getItem('postalExamHistory')) || {};
+        }
+
+        function saveHistory(historyObj) {
+            localStorage.setItem('postalExamHistory', JSON.stringify(historyObj));
+        }
+
+        function clearHistory() {
+            if(confirm('確定要清除所有的作答記憶嗎？清除後錯題將不會被優先考出。')) {
+                localStorage.removeItem('postalExamHistory');
+                alert('記憶已清除！系統將重新平均隨機出題。');
+            }
+        }
+
+        function selectSmartQuestions(pool, count) {
+            let history = getHistory();
+            pool.forEach(q => { q.playedCount = history[q.question] || 0; });
+
+            let grouped = {};
+            pool.forEach(q => {
+                if (!grouped[q.playedCount]) grouped[q.playedCount] = [];
+                grouped[q.playedCount].push(q);
+            });
+
+            let sortedCounts = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+            let selected = [];
+            for (let c of sortedCounts) {
+                let group = grouped[c];
+                shuffleArray(group);
+                for (let q of group) {
+                    if (selected.length < count) selected.push(q);
+                    else break;
+                }
+                if (selected.length >= count) break;
+            }
+            return shuffleArray(selected);
+        }
+
+        function startQuiz() {
+            let pool = [];
+            if (currentCategory === '不選擇範圍') {
+                for (let cat in activeDatabase) pool = pool.concat(activeDatabase[cat]);
+            } else {
+                pool = activeDatabase[currentCategory] || [];
+            }
+
+            if (pool.length === 0) {
+                alert("該範圍目前沒有題目！請確認是否已成功載入題庫。");
+                return;
+            }
+
+            let questionCount = Math.min(pool.length, 10);
+            currentQuizQuestions = selectSmartQuestions(pool, questionCount);
+            userAnswers = new Array(currentQuizQuestions.length).fill(null);
+            currentQuestionIndex = 0;
+
+            document.getElementById('quiz-category-label').innerText = currentCategory;
+            showScreen('screen-quiz');
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const q = currentQuizQuestions[currentQuestionIndex];
+            
+            document.getElementById('question-counter').innerText = `${currentQuestionIndex + 1} / ${currentQuizQuestions.length}`;
+            const progress = ((currentQuestionIndex + 1) / currentQuizQuestions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            document.getElementById('question-text').innerText = q.question;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            const options = ['A', 'B', 'C', 'D'];
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "text-left w-full p-4 rounded-xl border-2 border-slate-100 bg-white hover:bg-blue-50 hover:border-blue-300 focus:outline-none transition-all duration-200";
+                btn.innerHTML = `<span class="font-bold text-blue-600 mr-2">${opt}.</span> ${q.options[opt]}`;
+                btn.onclick = () => selectOption(opt);
+                
+                if (userAnswers[currentQuestionIndex] === opt) {
+                    btn.classList.add('bg-blue-50', 'border-blue-500', 'ring-2', 'ring-blue-200');
+                    btn.classList.remove('border-slate-100');
+                }
+                optionsContainer.appendChild(btn);
+            });
+            updateNextButton();
+        }
+
+        function selectOption(selectedOpt) {
+            userAnswers[currentQuestionIndex] = selectedOpt;
+            renderQuestion(); 
+        }
+
+        function updateNextButton() {
+            const nextBtn = document.getElementById('next-btn');
+            if (userAnswers[currentQuestionIndex]) {
+                nextBtn.disabled = false;
+                nextBtn.classList.remove('bg-slate-300', 'text-slate-500', 'pointer-events-none');
+                nextBtn.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700', 'shadow-md');
+                nextBtn.innerText = (currentQuestionIndex === currentQuizQuestions.length - 1) ? '完成測驗' : '下一題';
+            } else {
+                nextBtn.disabled = true;
+                nextBtn.classList.add('bg-slate-300', 'text-slate-500', 'pointer-events-none');
+                nextBtn.classList.remove('bg-blue-600', 'text-white', 'hover:bg-blue-700', 'shadow-md');
+                nextBtn.innerText = '請選擇答案';
+            }
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < currentQuizQuestions.length - 1) {
+                currentQuestionIndex++;
+                renderQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            showScreen('screen-results');
+
+            let score = 0;
+            const scorePerQuestion = 100 / currentQuizQuestions.length;
+            let html = '';
+            let history = getHistory();
+
+            currentQuizQuestions.forEach((q, index) => {
+                const userAns = userAnswers[index];
+                const isCorrect = userAns === q.answer;
+                
+                if (isCorrect) {
+                    score += scorePerQuestion;
+                    history[q.question] = (history[q.question] || 0) + 1;
+                } else {
+                    history[q.question] = 0; 
+                }
+
+                const statusColor = isCorrect ? 'text-green-600' : 'text-red-500';
+                const statusBg = isCorrect ? 'bg-green-50' : 'bg-red-50';
+                const statusIcon = isCorrect ? '✔️ 答對' : '❌ 答錯';
+                const userAnswerText = userAns ? q.options[userAns] : '未作答';
+                const correctAnswerText = q.options[q.answer];
+                const correctAnsFull = `(${q.answer}) ${correctAnswerText}`;
+
+                html += `
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-sm font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">第 ${index + 1} 題</span>
+                        <span class="text-sm font-bold px-2 py-0.5 rounded ${statusColor} ${statusBg}">${statusIcon}</span>
+                    </div>
+                    <p class="text-slate-800 mb-4 text-[0.95rem] leading-relaxed font-medium">${q.question}</p>
+                    
+                    <div class="mb-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <div class="text-sm mb-1.5 flex items-start">
+                            <span class="text-slate-500 font-semibold w-16 flex-shrink-0">你的答案：</span>
+                            <span class="${isCorrect ? 'text-green-600' : 'text-red-500'} font-bold">(${userAns || '-'}) ${userAnswerText}</span>
+                        </div>
+                        ${!isCorrect ? `
+                        <div class="text-sm flex items-start mt-2 pt-2 border-t border-slate-200">
+                            <span class="text-slate-500 font-semibold w-16 flex-shrink-0">正確答案：</span>
+                            <span class="text-blue-600 font-bold">${correctAnsFull}</span>
+                        </div>` : ''}
+                    </div>
+
+                    <!-- 點擊觸發 AI 名師法條解析 -->
+                    <div class="mt-2 pt-2 border-t border-slate-100">
+                        <details class="group outline-none" ontoggle="if(this.open) fetchAIExplanation(${index}, \`${q.question.replace(/`/g, '')}\`, \`${correctAnsFull.replace(/`/g, '')}\`, \`${currentCategory}\`)">
+                            <summary class="text-sm text-blue-600 font-bold cursor-pointer hover:text-blue-800 list-none flex items-center outline-none">
+                                <svg class="w-4 h-4 mr-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                👨‍🏫 點此由 AI 名師檢索法條與解析
+                            </summary>
+                            <div id="ai-explanation-${index}" data-loaded="false" class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-normal leading-relaxed border border-blue-100 shadow-inner">
+                                <!-- AI 內容會插入這裡 -->
+                            </div>
+                        </details>
+                    </div>
+                </div>
+                `;
+            });
+
+            saveHistory(history);
+            document.getElementById('score-display').innerText = Math.round(score);
+            document.getElementById('results-container').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
