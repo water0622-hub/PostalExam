@@ -255,40 +255,66 @@
             
             for (let i = 0; i < blocks.length; i++) {
                 let chunk = blocks[i];
+                let nextCat = currentCat; // 記錄下一題的分類
+                
+                // 1. 獨立偵測分類切換：從 chunk 尋找分類名稱 (避免因題目解析失敗而錯過切換)
+                for(let cat of categories) {
+                    if (chunk.includes("分類：" + cat) || chunk.includes("分類:" + cat)) {
+                        nextCat = cat;
+                    } else {
+                        // 檢查是否有純文字的分類名稱獨占一行
+                        let lines = chunk.split('\n');
+                        for (let line of lines) {
+                            if (line.trim() === cat) nextCat = cat;
+                        }
+                    }
+                }
+
                 let ansSplit = chunk.split('答案：');
-                if (ansSplit.length < 2) continue;
+                if (ansSplit.length < 2) {
+                    currentCat = nextCat; // 沒有解答的純文字段落，切換分類並跳過
+                    continue;
+                }
                 
                 let qText = ansSplit[0].trim();
                 let aAndRest = ansSplit[1].trim();
                 let answer = "";
                 
-                let ansMatch = aAndRest.match(/\(\s*([A-D])\s*\)/i);
-                if (ansMatch) answer = ansMatch[1].toUpperCase();
-                else continue;
+                // 2. 改良正規表達式：支援多選題格式如 (AB)，避免解析失敗
+                let ansMatch = aAndRest.match(/\(\s*([A-D]+)\s*\)/i);
+                if (!ansMatch) {
+                    currentCat = nextCat; // 即使解析失敗，分類切換也要執行
+                    continue;
+                }
+                answer = ansMatch[1].toUpperCase();
 
                 let optA_idx = qText.indexOf('(A)');
                 let optB_idx = qText.indexOf('(B)');
                 let optC_idx = qText.indexOf('(C)');
                 let optD_idx = qText.indexOf('(D)');
                 
+                // 容錯全形括號
+                if (optA_idx === -1) optA_idx = qText.indexOf('（A）');
+                if (optB_idx === -1) optB_idx = qText.indexOf('（B）');
+                if (optC_idx === -1) optC_idx = qText.indexOf('（C）');
+                if (optD_idx === -1) optD_idx = qText.indexOf('（D）');
+
                 if (optA_idx !== -1 && optB_idx !== -1 && optC_idx !== -1 && optD_idx !== -1) {
                     let question = qText.substring(0, optA_idx).trim();
                     db[currentCat].push({
                         question: question,
                         options: { 
-                            A: qText.substring(optA_idx + 3, optB_idx).trim(),
-                            B: qText.substring(optB_idx + 3, optC_idx).trim(),
-                            C: qText.substring(optC_idx + 3, optD_idx).trim(),
-                            D: qText.substring(optD_idx + 3).trim()
+                            A: qText.substring(optA_idx + 3, optB_idx).trim().replace(/^）/, ''),
+                            B: qText.substring(optB_idx + 3, optC_idx).trim().replace(/^）/, ''),
+                            C: qText.substring(optC_idx + 3, optD_idx).trim().replace(/^）/, ''),
+                            D: qText.substring(optD_idx + 3).trim().replace(/^）/, '')
                         },
                         answer: answer
                     });
                 }
 
-                let afterAns = aAndRest.substring(aAndRest.indexOf(answer) + 2);
-                for(let cat of categories) {
-                    if (afterAns.includes(cat)) currentCat = cat;
-                }
+                // 3. 這一題處理完畢，確實把目前的分類狀態切換成下一個
+                currentCat = nextCat;
             }
             return db;
         }
