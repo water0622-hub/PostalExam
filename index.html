@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>郵政法規測驗系統 (名師解析版)</title>
+    <title>郵政法規測驗系統 (AI 摘要版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
@@ -42,7 +42,7 @@
                         <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border border-white">AI</div>
                     </div>
                     <h2 class="text-2xl font-bold text-slate-800 mb-1">智慧測驗模式</h2>
-                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，內建郵政五法專業名師解析。</p>
+                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，提供即時 AI 聯網摘要。</p>
                     
                     <!-- 題庫狀態標籤 -->
                     <div id="db-status" class="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
@@ -320,7 +320,7 @@
         }
 
         // ==========================================
-        // AI 聯網搜尋解析模組 (郵政五法特製版)
+        // AI 聯網搜尋模組 (AI 摘要版)
         // ==========================================
         
         function formatMarkdown(text) {
@@ -342,30 +342,23 @@
             container.innerHTML = `
                 <div class="flex items-center text-blue-600 font-bold mb-2">
                     <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    正在比對郵政法規與檢索解析，請稍候...
+                    正在為您生成 AI 聯網摘要...
                 </div>
             `;
 
-            // 針對郵政五法深度優化的 Prompt
+            // 更改為 Google AI 摘要的提示風格
             const promptText = `
-你現在是一位專精於「台灣郵政特考」的專業補教名師。
-這是一道測驗範圍屬於「${category !== '不選擇範圍' ? category : '郵政五法'}」的考題。
-請根據台灣現行的官方《郵政法》、《郵政儲金匯兌法》、《簡易人壽保險法》、《郵件處理規則》或《郵務營業規章》等法規內容，直接上網檢索相關法條，並為考生提供精確、白話的解答。
-
+請針對以下郵政特考題目，進行網路搜尋並提供簡明扼要的「AI 摘要」：
 【題目】：${qText}
 【正確答案】：${correctAnsFull}
 
-請提供以下兩段內容：
-1. 📖 【相關法條】：請直接列出本題所依據的確切法條與內容（例如：郵政法第X條規定...）。務必精準，不要隨意編造法條。
-2. 💡 【白話解析】：請用考生最容易理解的方式，詳細說明「為什麼這個選項是正確的？」，並簡單點出「其他錯的選項哪裡有錯（陷阱在哪裡）？」。
-
-※ 輸出要求：請排版清楚，適度使用粗體標記重點，且「不要」再重複輸出題目本身。
+請直接輸出重點摘要（包含依據的法條重點及為什麼選該答案的客觀說明）。語氣請保持客觀、精練，如同搜尋引擎所生成的 AI 摘要結果。請勿重複輸出題目本身，也不要使用推銷或名師的語氣。
             `;
 
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: promptText }] }],
-                systemInstruction: { parts: [{ text: "你是一位台灣郵政法規名師，必須提供精確的台灣郵政法規條文與好懂的白話解析。" }] },
+                systemInstruction: { parts: [{ text: "你是一個提供精準、客觀資訊的 AI 搜尋摘要助理。請針對使用者的考題，直接給出簡明扼要的法規重點與解答摘要。" }] },
                 tools: [{ google_search: {} }] // 開啟 Google 搜尋聯網功能
             };
 
@@ -382,7 +375,7 @@
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const result = await response.json();
                     
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "抱歉，目前無法取得 AI 解析內容。";
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "抱歉，目前無法取得 AI 摘要內容。";
                     let htmlContent = `<div class="ai-content">${formatMarkdown(text)}</div>`;
 
                     // 處理聯網參考資料
@@ -399,7 +392,7 @@
                         
                         if (uniqueSources.length > 0) {
                             htmlContent += `<div class="mt-4 pt-3 border-t border-blue-200 text-[0.8rem] text-slate-600">
-                                <span class="font-bold text-blue-700">🔗 參考法規來源：</span>
+                                <span class="font-bold text-blue-700">🔗 參考資料來源：</span>
                                 <ul class="list-disc pl-4 mt-1 space-y-1">`;
                             uniqueSources.forEach(s => {
                                 htmlContent += `<li><a href="${s.uri}" target="_blank" class="text-blue-500 hover:text-blue-700 hover:underline break-all">${s.title}</a></li>`;
@@ -633,12 +626,12 @@
                         </div>` : ''}
                     </div>
 
-                    <!-- 點擊觸發 AI 名師法條解析 -->
+                    <!-- 點擊觸發 AI 聯網摘要 -->
                     <div class="mt-2 pt-2 border-t border-slate-100">
                         <details class="group outline-none" ontoggle="if(this.open) fetchAIExplanation(${index}, \`${q.question.replace(/`/g, '')}\`, \`${correctAnsFull.replace(/`/g, '')}\`, \`${currentCategory}\`)">
                             <summary class="text-sm text-blue-600 font-bold cursor-pointer hover:text-blue-800 list-none flex items-center outline-none">
                                 <svg class="w-4 h-4 mr-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                👨‍🏫 點此由 AI 名師檢索法條與解析
+                                ✨ 點此取得 Google AI 聯網摘要
                             </summary>
                             <div id="ai-explanation-${index}" data-loaded="false" class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-normal leading-relaxed border border-blue-100 shadow-inner">
                                 <!-- AI 內容會插入這裡 -->
