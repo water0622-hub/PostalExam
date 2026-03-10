@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>郵政法規測驗系統 (AI 摘要版)</title>
+    <title>郵政法規測驗系統 (單機解析版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <style>
@@ -11,12 +11,6 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         details > summary::-webkit-details-marker { display: none; }
         input[type="file"] { display: none; }
-        
-        /* AI 解析區的排版優化 */
-        .ai-content strong { color: #1e40af; font-weight: 800; }
-        .ai-content p { margin-bottom: 0.75rem; }
-        .ai-content ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 0.75rem; }
-        .ai-content li { margin-bottom: 0.25rem; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans h-screen overflow-hidden flex justify-center">
@@ -39,10 +33,9 @@
                 <div class="text-center mb-6">
                     <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl shadow-inner relative">
                         🧠
-                        <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-yellow-900 text-[0.6rem] font-bold px-1.5 py-0.5 rounded-full border border-white">AI</div>
                     </div>
                     <h2 class="text-2xl font-bold text-slate-800 mb-1">智慧測驗模式</h2>
-                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，提供即時 AI 聯網摘要。</p>
+                    <p class="text-slate-500 text-sm mb-2">優先考驗錯題，內建單機版郵政五法解析。</p>
                     
                     <!-- 題庫狀態標籤 -->
                     <div id="db-status" class="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-full mb-2">
@@ -144,6 +137,137 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
+        // ==========================================
+        // 內建離線法規資料庫 (取代 AI 聯網)
+        // 系統會從這些條文中，利用關鍵字土法煉鋼進行比對
+        // ==========================================
+        const BUILT_IN_LAWS = [
+            "【郵政法第1條】為健全郵政發展，提供普遍、公平、合理之郵政服務，增進公共利益，特制定本法。",
+            "【郵政法第2條】本法主管機關為交通部。",
+            "【郵政法第3條】交通部為提供郵政服務，設國營中華郵政股份有限公司。",
+            "【郵政法第4條】名詞定義：信函(傳達訊息)、明信片(單一紙片不加封套)、郵簡(整張紙摺疊)、印刷物(新聞紙雜誌書籍型錄)、盲人文件(凸出字樣)、小包(不逾1公斤)。郵政公用物(專供中華郵政使用之建築、機具、車船)。郵票(交付郵資證明)。郵政認知證(證明持證本人)。國際回信郵票券(萬國郵政聯盟兌換回信郵票證券)。",
+            "【郵政法第5條】中華郵政公司得經營遞送郵件、儲金、匯兌、簡易人壽保險、集郵及其相關商品、郵政資產之營運等業務。",
+            "【郵政法第6條】除中華郵政及受其委託者外，任何人不得以遞送下列文件為營業：明信片、郵簡、信函(各級政府機關、公立學校公營事業交寄，或單件500公克以下或單件資費不逾13倍基礎郵資)。",
+            "【郵政法第7條】除中華郵政同意外，任何人不得使用與郵政、郵局相同之文字圖形表彰營業名稱、服務或產品。",
+            "【郵政法第8條】郵件、郵政資產、郵政款項及郵政公用物，非依法律，不得作為檢查、徵收或扣押之標的。",
+            "【郵政法第9條】中華郵政經營之遞送郵件業務及供該項業務使用之郵政公用物、業務單據，免納一切稅捐。郵件在航運發生海難時，不分擔共同海損。",
+            "【郵政法第10條】不得開拆他人郵件。但有事實足認內裝禁寄物品、不適用優惠資費或違反郵政法規，經寄件人或收件人同意開拆者不在此限。不同意開拆時得拒絕遞送。",
+            "【郵政法第11條】中華郵政或其服務人員因職務知悉他人秘密者，有保守秘密之義務；離職者亦同。",
+            "【郵政法第12條】無行為能力人或限制行為能力人，關於郵政事務對中華郵政所為之行為，視為有行為能力人之行為。",
+            "【郵政法第13條】國際郵政公約與本法牴觸者，除國際郵件事務外，適用本法之規定。",
+            "【郵政法第14條】專營文件之資費由中華郵政擬訂報主管機關核定。其餘(如包裹、快捷、印刷物)由中華郵政自行訂定。",
+            "【郵政法第15條】除中華郵政外，任何人不得發行、製作與郵票類似且具交付郵資證明之票證。",
+            "【郵政法第16條】郵票、含有郵票符誌之明信片或特製郵簡，由中華郵政擬訂式樣、圖案、價格，報請主管機關層轉行政院核定後發行。",
+            "【郵政法第17條】發行之郵票廢止應於一個月前公告。持有廢止郵票者，自廢止之日起六個月內，得向中華郵政換取新票。",
+            "【郵政法第18條】污損之郵票，失其效用。明信片及特製郵簡上表示價格之花紋有污損時亦同。",
+            "【郵政法第22條】各類郵件應按表面所書地址投遞。無法投遞應退還寄件人。無法退還由中華郵政招領揭示。經過相當時期無人領取，得由中華郵政處分。",
+            "【郵政法第23條】收件人有二人以上，得向其中任何一人投遞。發生爭議向中華郵政聲明已提起訴訟時，應依確定判決投遞。",
+            "【郵政法第24條】收件地址係地面層以外樓層，設有管理員或收發處者交其收領。僅設受信設備對講機者，平常郵件投入設備，掛號及欠資請收件人至地面層領取或補付。",
+            "【郵政法第25條】中華郵政為確認收件人之真偽，得請其出示必要之證明。",
+            "【郵政法第26條】凡以運送為業之鐵路、長途汽車、船舶、航空器，均有輔助載運郵件及其處理人員之責。",
+            "【郵政法第27條】郵政服務人員為遞送郵件或郵政公用物，經過道路、橋樑、海關、渡口等交通線路時，有優先通行權。",
+            "【郵政法第28條】主管機關得派員會同警察機關進入違反本法場所實施檢查，該場所負責人不得規避妨礙拒絕。",
+            "【郵政法第29條】包裹、快捷、報值、保價、掛號郵件遺失被竊毀損，或限時快捷延誤，得請求補償。收件人提證據證明授權，或一部毀損收件人保留求償權時，得由收件人行使。",
+            "【郵政法第31條】不得請求補償情形：郵件性質或瑕疵、天災事變(保價郵件以戰事為限)、外國境內損失依該國法規不賠、禁寄物品、未妥為封裝經告知未改善、收件人無異議接受。",
+            "【郵政法第32條】封面無破裂重量未減，不得以毀損論。因時間或市價變動減損價值，不得以損失論。",
+            "【郵政法第33條】履行補償後發現原寄郵件，應通知受領補償者，得於收到通知之日起三個月內退還補償金請求交付郵件。",
+            "【郵政法第34條】補償請求權，自郵件交寄之日起，逾六個月不行使而消滅。期間內曾向郵政查詢者以已經請求補償論。",
+            "【郵政法第35條】補償金確定後，應通知受領補償人。補償金請求權，自收到通知之日起，逾五年間不行使而消滅。",
+            "【郵政法第36條】偽造變造郵政認知證、國際回信郵票券、郵資已付符誌，處六月以上五年以下有期徒刑。塗用膠類油類意圖重覆行使用，處一年以下有期徒刑或拘役或九千元罰金。",
+            "【郵政法第38條】無故開拆或隱匿他人郵件，處拘役或九萬元以下罰金。",
+            "【郵政法第39條】誤收他人郵件故意不返還，處二千元以上一萬元以下罰鍰。",
+            "【郵政儲金匯兌法第1條】為鼓勵國民儲蓄、促進資本形成、配合國家政策、增進民眾便利，保障郵政儲金匯兌安全，特制定本法。",
+            "【郵政儲金匯兌法第2條】主管機關交通部，業務受金融監督管理委員會監督；涉及外匯業務經營者，應經中央銀行許可。",
+            "【郵政儲金匯兌法第3條】存簿儲金(隨時存取)、定期儲金(一定時期限制)、劃撥儲金(辦理存款、提款、匯款、撥款、轉帳及申請領用劃撥支票，並得接受他人存款)。",
+            "【郵政儲金匯兌法第4條】郵政匯兌種類：國內匯兌、國際匯兌、郵政禮券(無條件付款之無記名有價證券)。",
+            "【郵政儲金匯兌法第7條】中華郵政公司經營之郵政儲金匯兌業務，其會計帳務應獨立處理之。",
+            "【郵政儲金匯兌法第8條】經營儲金匯兌業務及使用之公用物、單據，成立之日起五年內免納一切稅捐。",
+            "【郵政儲金匯兌法第9條】郵政儲金之利率，應以年率為準，並於營業場所揭示。",
+            "【郵政儲金匯兌法第11條】非依法院裁判或檢察機關書面通知或法律，不得接受第三人停止帳戶交易或給付匯款請求。對顧客資料應保守秘密。",
+            "【郵政儲金匯兌法第15條】儲戶憑證印鑑遺失應辦掛失止付；未辦妥前，郵局依規定程序盡善良管理人注意義務所為之給付，縱係冒領亦不負責任。",
+            "【郵政儲金匯兌法第18條】郵政儲金運用範圍：轉存央行、轉存其他金融機構、投資公債公司債金融債券短期票券、投資受益憑證上市櫃股票、參與金融同業拆款市場、重大建設融資等。",
+            "【郵政儲金匯兌法第19條】存簿儲金每一人或每一團體僅得為一戶。最高存款限額由交通部會同央行及金管會定之，超過不給息(政府機關、自治團體、公益法人不適用)。",
+            "【郵政儲金匯兌法第20條】存簿儲金之利息，應免一切稅捐。",
+            "【郵政儲金匯兌法第22條】郵政匯票受款人兌領請求權，自發票日起算，三年間不行使而消滅。",
+            "【郵政儲金匯兌法第23條】郵政匯票逾期未經兌款，應通知匯款人領回，不得要求退還匯費。",
+            "【郵政儲金匯兌法第24條】郵政匯票遺失毀損，匯款人或受款人得申請掛失或繳回並領回匯款。業經兌領則拒絕受理。",
+            "【簡易人壽保險法第1條】提供國民基本經濟保障，健全簡易人壽保險制度，便利全民投保，增進社會福祉。",
+            "【簡易人壽保險法第4條】簡易人壽保險包括生存保險、死亡保險、生死合險，得以附約方式經營健康保險及傷害保險。",
+            "【簡易人壽保險法第5條】最高最低保險金額及同一被保險人總數，由交通部會同金管會定之。保險金額超過限額時，超過部分契約無效，無息退還保費。",
+            "【簡易人壽保險法第6條】簡易人壽保險對於被保險人，免施以健康檢查。",
+            "【簡易人壽保險法第7條】非中華民國國民不得為被保險人。未滿15歲未成年人為被保險人，死亡給付於滿15歲時始生效力。喪葬費用保險金額不得超過遺產稅扣除額一半。",
+            "【簡易人壽保險法第8條】第三人訂立保險契約未經被保險人書面同意並約定保險金額者無效。被保險人得隨時書面撤銷，撤銷視為要保人終止契約。",
+            "【簡易人壽保險法第9條】以他人為被保險人時，須要保人與被保險人有保險利益。",
+            "【簡易人壽保險法第11條】保險契約自填發保險單之日發生效力。同意前預收保費者，溯自預收時開始負責。",
+            "【簡易人壽保險法第12條】保險人對於保險費，不得以訴訟請求交付。",
+            "【簡易人壽保險法第13條】續期保費自繳費日起一個月未交付者，保險人應於十日內催告，並自當期繳費日起算三個月為寬限期。期滿未交付效力停止。",
+            "【簡易人壽保險法第14條】契約停止效力後，要保人得於二年以內申請恢復。溯自繳清保費及利息之日起恢復效力。",
+            "【簡易人壽保險法第15條】要保人或被保險人故意隱匿、過失遺漏或不實說明，足以變更或減少危險估計者，保險人得解除契約。",
+            "【簡易人壽保險法第16條】解除權自知有原因後一個月不行使而消滅；契約訂立或復效至事故發生滿二年亦不得解除。解除時得申請應得之保單價值準備金。",
+            "【簡易人壽保險法第17條】未指定受益人，被保險人死亡為給付事由者，保險金作為被保險人之遺產。",
+            "【簡易人壽保險法第20條】不負給付責任情形：生效或復效一年內故意自殺、要保人故意致被保險人於死、因犯罪處死拒捕越獄致死、健康/傷害險故意自殺或犯罪致死。",
+            "【簡易人壽保險法第21條】不負責任情形，保費已付足一年以上者，要保人得申請返還其應得之保單價值準備金。",
+            "【簡易人壽保險法第22條】受益人故意致被保險人於死，無請求權。有其他受益人由其平均領受，無其他受益人時保險金作為被保險人遺產。",
+            "【簡易人壽保險法第23條】保費付足一年以上者，要保人得以保單為質，在其保單價值準備金額內，向保險人申請借款。",
+            "【簡易人壽保險法第25條】由保險契約所發生之權利，自得為請求之日起，逾五年不行使而消滅。",
+            "【郵件處理規則第3條】寄件人交寄郵件內容，除存證信函留存郵局副本外，不予證明。",
+            "【郵件處理規則第10條】新聞紙為每日或每隔六日以下按期發行者。雜誌為七日以上三個月以下按期發行者。",
+            "【郵件處理規則第11條】書籍指裝訂成冊之圖書。型錄指內容百分之五十以上為商品價格、功能等印製者。",
+            "【郵件處理規則第15條】無法投遞包裹因往返詢問致變質消滅，不負補償責任。寄件人聲明拋棄依無著郵件處理。",
+            "【郵件處理規則第34條】存證信函留存郵局之副本，自交寄日起，由郵局保存三年，期滿後銷燬之。",
+            "【郵件處理規則第37條】禁寄物品：易燃爆裂、活生動物(蜜蜂蠶水蛭除外)、放射性、鴉片嗎啡、猥褻品、違法彩票。",
+            "【郵件處理規則第48條】掛號郵件得不投入i郵箱：體積過大、外包裝破損、代收貨款保價逾公告金額、滿櫃、需回執、無法複製文件。",
+            "【郵件處理規則第50條】掛號郵件招領期間，自通知招領之次日起算十五日，屆期未領退回寄件人。",
+            "【郵件處理規則第56條】無法投遞之國內非掛號新聞紙雜誌退回，發單通知次日起十五日內補付郵資領回。",
+            "【郵件處理規則第60條】掛號郵件查詢期限自交寄之次日起算六個月。國際快捷自交寄次日起四個月。",
+            "【郵件處理規則第64條】國內掛號函件遺失補償575元。國際掛號函件依SDR 30單位。國際印刷物專袋SDR 150單位。",
+            "【郵件處理規則第65條】國內包裹補償(尺寸)：不逾60公分575元，60-90公分865元，逾90公分1155元。包裹補償(重量)：5kg以下575元，5-10kg 865元，逾10kg 1155元。國際包裹快捷每件SDR 40加每公斤4.5。",
+            "【郵務營業規章第12條】信函每件重量不得逾二公斤。",
+            "【郵務營業規章第15條】明信片黏貼郵票，橫式者應貼於正面上端右角；直式者應貼於正面上端左角。",
+            "【郵務營業規章第19條】國內郵簡夾寄任何附件時，應劃去「郵簡」字樣，改按信函寄遞。",
+            "【郵務營業規章第28條】新聞紙或雜誌，非向指定之郵局窗口交寄者，應按印刷物付費交寄。",
+            "【郵務營業規章第30條】印刷之學生成績單、在學證明書雖經填寫而在國內互寄者，得按印刷物資費交寄。",
+            "【郵務營業規章第32條】印刷物每件重量限制為二公斤。但國內互寄單本書籍，或寄往國外書籍，均得展至五公斤。",
+            "【郵務營業規章第35條】盲人文件免付水陸路普通資費。交由航空郵路者，國內付航空費，國際付新聞紙航空資費。",
+            "【郵務營業規章第46條】國內包裹每件重量限制為二十公斤。最大限度為長寬高合計150公分。"
+        ];
+
+        // 關鍵字模糊搜尋演算法 (土法煉鋼)
+        function findBestMatchedLaw(questionText, category) {
+            let maxScore = 0;
+            let bestLaw = "系統內建核心法庫未涵蓋此題精準條文，建議翻閱完整法規。";
+            
+            // 擷取題目關鍵字 (長度>=2的中文片段)
+            let qClean = questionText.replace(/[^\u4e00-\u9fa5]/g, '');
+            let keywords = [];
+            for (let i = 0; i < qClean.length - 1; i += 2) {
+                keywords.push(qClean.substring(i, i + 2));
+                if (i + 2 < qClean.length) keywords.push(qClean.substring(i, i + 3));
+            }
+            
+            // 找出最相關的法條
+            BUILT_IN_LAWS.forEach(law => {
+                // 如果法條前綴與目前分類不符，降低權重以防干擾
+                let scoreMultiplier = 1;
+                if (category !== "不選擇範圍" && category !== "考古題" && !law.includes(category)) {
+                    scoreMultiplier = 0.2; 
+                }
+
+                let score = 0;
+                keywords.forEach(kw => {
+                    if (law.includes(kw)) score += kw.length;
+                });
+                
+                score = score * scoreMultiplier;
+                if (score > maxScore) {
+                    maxScore = score;
+                    bestLaw = law;
+                }
+            });
+
+            return maxScore > 6 ? bestLaw : "系統內建核心法庫未涵蓋此題精準條文，請查閱完整法規。";
+        }
+
         // --- 預設展示題庫 ---
         const defaultRawText = `
 郵政法 題目：下列何者非屬郵政法之立法目的?(A)增進公共利益(B)提供普遍、公平、合理之郵政服務(C)健全郵政發展(D)促進產業創新。 答案：(D) 
@@ -161,9 +285,6 @@
         let currentQuizQuestions = [];
         let currentQuestionIndex = 0;
         let userAnswers = [];
-
-        // 系統動態提供的 API Key
-        const apiKey = "";
 
         window.onload = () => { loadDatabase(); };
 
@@ -288,6 +409,14 @@
                 }
                 answer = ansMatch[1].toUpperCase();
 
+                // 抓取原本就可能存在的解析內容
+                let explanation = "";
+                let expIndex = aAndRest.indexOf('法條：');
+                if (expIndex === -1) expIndex = aAndRest.indexOf('解析：');
+                if (expIndex !== -1) {
+                    explanation = aAndRest.substring(expIndex + 3).split('題目：')[0].trim();
+                }
+
                 let optA_idx = qText.indexOf('(A)');
                 let optB_idx = qText.indexOf('(B)');
                 let optC_idx = qText.indexOf('(C)');
@@ -309,7 +438,8 @@
                             C: qText.substring(optC_idx + 3, optD_idx).trim().replace(/^）/, ''),
                             D: qText.substring(optD_idx + 3).trim().replace(/^）/, '')
                         },
-                        answer: answer
+                        answer: answer,
+                        explanation: explanation
                     });
                 }
 
@@ -318,117 +448,6 @@
             }
             return db;
         }
-
-        // ==========================================
-        // AI 聯網搜尋模組 (AI 摘要版)
-        // ==========================================
-        
-        function formatMarkdown(text) {
-            // 轉換基本的 Markdown 符號至 HTML 以利顯示
-            let html = text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/\n/g, '<br>');
-                
-            // 清理多餘空行
-            html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
-            return html;
-        }
-
-        async function fetchAIExplanation(index, qText, correctAnsFull, category) {
-            const container = document.getElementById(`ai-explanation-${index}`);
-            if (container.dataset.loaded === 'true') return;
-
-            container.innerHTML = `
-                <div class="flex items-center text-blue-600 font-bold mb-2">
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                    正在為您生成 AI 聯網摘要...
-                </div>
-            `;
-
-            // 精簡 Prompt，減少 AI 負擔，提高成功率
-            const promptText = `
-請針對以下郵政法規考題，提供簡短的「AI 摘要」：
-題目：${qText}
-答案：${correctAnsFull}
-
-請直接說明此題的【法規依據】與【解析重點】。語氣客觀精練，不需重複題目。
-            `;
-
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: promptText }] }],
-                systemInstruction: { parts: [{ text: "你是一個專業的法規摘要助理，負責提供簡明扼要的法條依據與考題解析。" }] },
-                tools: [{ google_search: {} }] // 開啟 Google 搜尋聯網功能
-            };
-
-            let delay = 1000;
-            let maxRetries = 3; // 設定最大重試次數
-
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const result = await response.json();
-                    
-                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "抱歉，目前無法取得 AI 摘要內容。";
-                    let htmlContent = `<div class="ai-content">${formatMarkdown(text)}</div>`;
-
-                    // 處理聯網參考資料
-                    const attributions = result.candidates?.[0]?.groundingMetadata?.groundingAttributions || [];
-                    if (attributions.length > 0) {
-                        const uniqueSources = [];
-                        attributions.forEach(a => {
-                            const uri = a.web?.uri;
-                            const title = a.web?.title;
-                            if (uri && title && !uniqueSources.some(s => s.uri === uri)) {
-                                uniqueSources.push({ uri, title });
-                            }
-                        });
-                        
-                        if (uniqueSources.length > 0) {
-                            htmlContent += `<div class="mt-4 pt-3 border-t border-blue-200 text-[0.8rem] text-slate-600">
-                                <span class="font-bold text-blue-700">🔗 參考資料來源：</span>
-                                <ul class="list-disc pl-4 mt-1 space-y-1">`;
-                            uniqueSources.forEach(s => {
-                                htmlContent += `<li><a href="${s.uri}" target="_blank" class="text-blue-500 hover:text-blue-700 hover:underline break-all">${s.title}</a></li>`;
-                            });
-                            htmlContent += `</ul></div>`;
-                        }
-                    }
-
-                    container.innerHTML = htmlContent;
-                    container.dataset.loaded = 'true';
-                    return; // 成功取得資料後直接結束函數
-
-                } catch (error) {
-                    console.warn(`Attempt ${i + 1} failed: ${error.message}`);
-                    if (i === maxRetries - 1) {
-                        container.innerHTML = `
-                            <div class="text-red-500 font-bold mb-2">❌ 無法連線至 AI 伺服器，可能原因如下：</div>
-                            <ul class="list-disc pl-5 text-sm text-slate-600">
-                                <li>網路連線不穩定。</li>
-                                <li>API 呼叫次數過於頻繁。</li>
-                                <li>系統暫時繁忙。</li>
-                            </ul>
-                            <div class="mt-2 text-sm text-blue-600 cursor-pointer hover:underline" onclick="fetchAIExplanation(${index}, \`${qText}\`, \`${correctAnsFull}\`, \`${category}\`)">
-                                🔄 點此重試
-                            </div>
-                        `;
-                    } else {
-                        // 失敗時等待一段時間再重試 (1s, 2s)
-                        await new Promise(res => setTimeout(res, delay));
-                        delay *= 2; 
-                    }
-                }
-            }
-        }
-
 
         // ==========================================
         // 測驗邏輯區塊
@@ -619,6 +638,16 @@
                 const userAnswerText = userAns ? q.options[userAns] : '未作答';
                 const correctAnswerText = q.options[q.answer];
                 const correctAnsFull = `(${q.answer}) ${correctAnswerText}`;
+                
+                // 本機離線比對法規
+                let explanationText = "";
+                if (q.explanation && q.explanation.length > 0) {
+                    // 如果原本的 word 檔裡就有法條或解析，直接顯示
+                    explanationText = q.explanation;
+                } else {
+                    // 否則觸發土法煉鋼的關鍵字搜尋法規演算法
+                    explanationText = findBestMatchedLaw(q.question, currentCategory);
+                }
 
                 html += `
                 <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
@@ -640,15 +669,15 @@
                         </div>` : ''}
                     </div>
 
-                    <!-- 點擊觸發 AI 聯網摘要 -->
+                    <!-- 單機版法條解析區 -->
                     <div class="mt-2 pt-2 border-t border-slate-100">
-                        <details class="group outline-none" ontoggle="if(this.open) fetchAIExplanation(${index}, \`${q.question.replace(/`/g, '')}\`, \`${correctAnsFull.replace(/`/g, '')}\`, \`${currentCategory}\`)">
+                        <details class="group outline-none">
                             <summary class="text-sm text-blue-600 font-bold cursor-pointer hover:text-blue-800 list-none flex items-center outline-none">
                                 <svg class="w-4 h-4 mr-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                                ✨ 點此取得 Google AI 聯網摘要
+                                📖 檢視法規與解析
                             </summary>
-                            <div id="ai-explanation-${index}" data-loaded="false" class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-normal leading-relaxed border border-blue-100 shadow-inner">
-                                <!-- AI 內容會插入這裡 -->
+                            <div class="mt-3 text-[0.95rem] text-slate-700 bg-blue-50/50 p-4 rounded-lg whitespace-normal leading-relaxed border border-blue-100 shadow-inner">
+                                ${explanationText}
                             </div>
                         </details>
                     </div>
