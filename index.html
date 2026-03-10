@@ -232,40 +232,56 @@
             "【郵務營業規章第46條】國內包裹每件重量限制為二十公斤。最大限度為長寬高合計150公分。"
         ];
 
-        // 關鍵字模糊搜尋演算法 (土法煉鋼)
-        function findBestMatchedLaw(questionText, category) {
-            let maxScore = 0;
-            let bestLaw = "系統內建核心法庫未涵蓋此題精準條文，建議翻閱完整法規。";
-            
-            // 擷取題目關鍵字 (長度>=2的中文片段)
-            let qClean = questionText.replace(/[^\u4e00-\u9fa5]/g, '');
-            let keywords = [];
-            for (let i = 0; i < qClean.length - 1; i += 2) {
-                keywords.push(qClean.substring(i, i + 2));
-                if (i + 2 < qClean.length) keywords.push(qClean.substring(i, i + 3));
-            }
-            
-            // 找出最相關的法條
-            BUILT_IN_LAWS.forEach(law => {
-                // 如果法條前綴與目前分類不符，降低權重以防干擾
-                let scoreMultiplier = 1;
-                if (category !== "不選擇範圍" && category !== "考古題" && !law.includes(category)) {
-                    scoreMultiplier = 0.2; 
-                }
+        // 關鍵字模糊搜尋演算法 (土法煉鋼雙重掃描)
+        function findBestMatchedLaw(questionText, optionsData, category) {
+            let bestLaw = "系統內建核心法庫未涵蓋此題精準條文，請查閱完整法規。";
 
-                let score = 0;
-                keywords.forEach(kw => {
-                    if (law.includes(kw)) score += kw.length;
-                });
+            // 內部比對函數：輸入一段文字，回傳最高分的法規
+            function getMatch(text) {
+                let qClean = text.replace(/[^\u4e00-\u9fa5]/g, '');
+                let keywords = [];
+                for (let i = 0; i < qClean.length - 1; i += 2) {
+                    keywords.push(qClean.substring(i, i + 2));
+                    if (i + 2 < qClean.length) keywords.push(qClean.substring(i, i + 3));
+                }
                 
-                score = score * scoreMultiplier;
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestLaw = law;
-                }
-            });
+                let currentMax = 0;
+                let currentBest = "";
+                
+                BUILT_IN_LAWS.forEach(law => {
+                    let scoreMultiplier = 1;
+                    if (category !== "不選擇範圍" && category !== "考古題" && !law.includes(category)) {
+                        scoreMultiplier = 0.2; 
+                    }
 
-            return maxScore > 6 ? bestLaw : "系統內建核心法庫未涵蓋此題精準條文，請查閱完整法規。";
+                    let score = 0;
+                    keywords.forEach(kw => {
+                        if (law.includes(kw)) score += kw.length;
+                    });
+                    
+                    score = score * scoreMultiplier;
+                    if (score > currentMax) {
+                        currentMax = score;
+                        currentBest = law;
+                    }
+                });
+                return { score: currentMax, law: currentBest };
+            }
+
+            // 第一層：先以「題目內容」進行搜索
+            let match1 = getMatch(questionText);
+            if (match1.score > 6) {
+                return match1.law;
+            }
+
+            // 第二層：若題目內容搜索不到，則合併「選項內容」再次搜索
+            let optionsText = (optionsData.A || "") + (optionsData.B || "") + (optionsData.C || "") + (optionsData.D || "");
+            let match2 = getMatch(optionsText);
+            if (match2.score > 6) {
+                return match2.law;
+            }
+
+            return bestLaw; // 若兩層都搜不到，回傳預設字串
         }
 
         // --- 預設展示題庫 ---
@@ -639,14 +655,14 @@
                 const correctAnswerText = q.options[q.answer];
                 const correctAnsFull = `(${q.answer}) ${correctAnswerText}`;
                 
-                // 本機離線比對法規
+                // 本機離線比對法規 (雙重掃描機制)
                 let explanationText = "";
                 if (q.explanation && q.explanation.length > 0) {
                     // 如果原本的 word 檔裡就有法條或解析，直接顯示
                     explanationText = q.explanation;
                 } else {
                     // 否則觸發土法煉鋼的關鍵字搜尋法規演算法
-                    explanationText = findBestMatchedLaw(q.question, currentCategory);
+                    explanationText = findBestMatchedLaw(q.question, q.options, currentCategory);
                 }
 
                 html += `
